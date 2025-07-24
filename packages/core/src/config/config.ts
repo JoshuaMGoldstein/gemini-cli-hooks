@@ -174,6 +174,9 @@ export interface ConfigParameters {
   noBrowser?: boolean;
   summarizeToolOutput?: Record<string, SummarizeToolOutputSettings>;
   ideMode?: boolean;
+  resume?: boolean;
+  autosave?: boolean;
+  resumedChatTag?: string;
 }
 
 export class Config {
@@ -229,6 +232,9 @@ export class Config {
     | Record<string, SummarizeToolOutputSettings>
     | undefined;
   private readonly experimentalAcp: boolean = false;
+  private readonly resume: boolean;
+  private readonly autosave: boolean;
+  private resumedChatTag: string | undefined;
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -279,6 +285,9 @@ export class Config {
     this.noBrowser = params.noBrowser ?? false;
     this.summarizeToolOutput = params.summarizeToolOutput;
     this.ideMode = params.ideMode ?? false;
+    this.resume = params.resume ?? false;
+    this.autosave = params.autosave ?? false;
+    this.resumedChatTag = params.resumedChatTag;
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -561,6 +570,22 @@ export class Config {
 
   getIdeMode(): boolean {
     return this.ideMode;
+  }
+
+  getResumeEnabled(): boolean {
+    return this.resume;
+  }
+
+  getAutosaveEnabled(): boolean {
+    return this.autosave;
+  }
+
+  getResumedChatTag(): string | undefined {
+    return this.resumedChatTag;
+  }
+
+  setResumedChatTag(tag: string | undefined): void {
+    this.resumedChatTag = tag;
   }
 
   async getGitService(): Promise<GitService> {

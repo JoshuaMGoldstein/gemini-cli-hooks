@@ -61,6 +61,8 @@ export interface CliArgs {
   listExtensions: boolean | undefined;
   ideMode: boolean | undefined;
   proxy: string | undefined;
+  resume: boolean | undefined;
+  autosave: boolean | undefined;
 }
 
 export async function parseArguments(): Promise<CliArgs> {
@@ -194,6 +196,16 @@ export async function parseArguments(): Promise<CliArgs> {
       type: 'string',
       description:
         'Proxy for gemini client, like schema://user:password@host:port',
+    })
+    .option('resume', {
+      type: 'boolean',
+      description: 'Resume the last chat session automatically.',
+      default: false,
+    })
+    .option('autosave', {
+      type: 'boolean',
+      description: 'Automatically save the chat session after each turn.',
+      default: false,
     })
     .version(await getCliVersion()) // This will enable the --version flag based on package.json
     .alias('v', 'version')
@@ -441,6 +453,8 @@ export async function loadCliConfig(
     noBrowser: !!process.env.NO_BROWSER,
     summarizeToolOutput: settings.summarizeToolOutput,
     ideMode,
+    resume: argv.resume,
+    autosave: argv.autosave,
   });
 }
 

@@ -83,22 +83,19 @@ const listCommand: SlashCommand = {
   },
 };
 
+import { randomUUID } from 'crypto';
 const saveCommand: SlashCommand = {
   name: 'save',
   description:
-    'Save the current conversation as a checkpoint. Usage: /chat save <tag>',
+    'Save the current conversation as a checkpoint. Usage: /chat save [tag]',
   kind: CommandKind.BUILT_IN,
   action: async (context, args): Promise<MessageActionReturn> => {
-    const tag = args.trim();
+    const { logger, config } = context.services;
+    let tag = args.trim();
     if (!tag) {
-      return {
-        type: 'message',
-        messageType: 'error',
-        content: 'Missing tag. Usage: /chat save <tag>',
-      };
+      tag = config?.getResumedChatTag() ?? randomUUID();
     }
 
-    const { logger, config } = context.services;
     await logger.initialize();
     const chat = await config?.getGeminiClient()?.getChat();
     if (!chat) {
@@ -131,19 +128,26 @@ const resumeCommand: SlashCommand = {
   name: 'resume',
   altNames: ['load'],
   description:
-    'Resume a conversation from a checkpoint. Usage: /chat resume <tag>',
+    'Resume a conversation from a checkpoint. Usage: /chat resume [tag]',
   kind: CommandKind.BUILT_IN,
   action: async (context, args) => {
-    const tag = args.trim();
+    let tag = args.trim();
+    if (!tag) {
+      const chatDetails = await getSavedChatTags(context, true);
+      if (chatDetails.length > 0) {
+        tag = chatDetails[0].name;
+      }
+    }
+
     if (!tag) {
       return {
         type: 'message',
         messageType: 'error',
-        content: 'Missing tag. Usage: /chat resume <tag>',
+        content: 'No saved conversations found.',
       };
     }
 
-    const { logger } = context.services;
+    const { logger, config } = context.services;
     await logger.initialize();
     const conversation = await logger.loadCheckpoint(tag);
 
@@ -154,6 +158,8 @@ const resumeCommand: SlashCommand = {
         content: `No saved checkpoint found with tag: ${tag}.`,
       };
     }
+
+    config?.setResumedChatTag(tag);
 
     const rolemap: { [key: string]: MessageType } = {
       user: MessageType.USER,

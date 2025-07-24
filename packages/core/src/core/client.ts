@@ -46,6 +46,11 @@ import { ideContext } from '../services/ideContext.js';
 import { logFlashDecidedToContinue } from '../telemetry/loggers.js';
 import { FlashDecidedToContinueEvent } from '../telemetry/types.js';
 
+//Added for --resume
+import { loadCheckpoint } from '../utils/checkpoint.js';
+//Added for --autosave
+import { autoSaveChatIfEnabled } from '../utils/autosave.js';
+
 function isThinkingSupported(model: string) {
   if (model.startsWith('gemini-2.5')) return true;
   return false;
@@ -107,6 +112,7 @@ export class GeminiClient {
 
   private readonly loopDetector: LoopDetectionService;
   private lastPromptId?: string;
+  private initialHistory?: Content[];
 
   constructor(private config: Config) {
     if (config.getProxy()) {
@@ -123,7 +129,14 @@ export class GeminiClient {
       this.config,
       this.config.getSessionId(),
     );
-    this.chat = await this.startChat();
+
+    // This section implements the --resume functionality.
+    if (this.config.getResumeEnabled()) {          
+      const history = await loadCheckpoint(this.config);
+      this.chat = await this.startChat(history, false);
+    } else {
+      this.chat = await this.startChat();
+    }
   }
 
   getContentGenerator(): ContentGenerator {
@@ -136,6 +149,10 @@ export class GeminiClient {
   getUserTier(): UserTierId | undefined {
     return this.contentGenerator?.userTier;
   }
+
+
+
+// ... (rest of the file)
 
   async addHistory(content: Content) {
     this.getChat().addHistory(content);
@@ -235,22 +252,31 @@ export class GeminiClient {
     return initialParts;
   }
 
-  async startChat(extraHistory?: Content[]): Promise<GeminiChat> {
-    const envParts = await this.getEnvironment();
+  async startChat(extraHistory?: Content[], prependEnvironmentHistory:boolean=true): Promise<GeminiChat> {
     const toolRegistry = await this.config.getToolRegistry();
     const toolDeclarations = toolRegistry.getFunctionDeclarations();
     const tools: Tool[] = [{ functionDeclarations: toolDeclarations }];
-    const history: Content[] = [
-      {
-        role: 'user',
-        parts: envParts,
-      },
-      {
-        role: 'model',
-        parts: [{ text: 'Got it. Thanks for the context!' }],
-      },
-      ...(extraHistory ?? []),
-    ];
+    let history: Content[];
+
+    if (this.initialHistory) {
+      history = [...this.initialHistory, ...(extraHistory ?? [])];
+    } else if(prependEnvironmentHistory) {
+      const envParts = await this.getEnvironment();
+      history = [
+        {
+          role: 'user',
+          parts: envParts,
+        },
+        {
+          role: 'model',
+          parts: [{ text: 'Got it. Thanks for the context!' }],
+        },
+        ...(extraHistory ?? []),
+      ];
+    } else {
+      history = extraHistory ?? [];
+    }
+
     try {
       const userMemory = this.config.getUserMemory();
       const systemInstruction = getCoreSystemPrompt(userMemory);
@@ -404,6 +430,7 @@ export class GeminiClient {
         );
       }
     }
+    await autoSaveChatIfEnabled(this.config);
     return turn;
   }
 
