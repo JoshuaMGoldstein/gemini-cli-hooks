@@ -11,6 +11,8 @@ import {
   ToolRegistry,
   shutdownTelemetry,
   isTelemetrySdkInitialized,
+  formatFileDiff,
+  autoSaveChatIfEnabled,
 } from '@google/gemini-cli-core';
 import {
   Content,
@@ -18,7 +20,7 @@ import {
   FunctionCall,
   GenerateContentResponse,
 } from '@google/genai';
-
+import { spawn } from 'child_process';
 import { parseAndFormatApiError } from './ui/utils/errorParsing.js';
 
 function getResponseText(response: GenerateContentResponse): string | null {
@@ -41,6 +43,32 @@ function getResponseText(response: GenerateContentResponse): string | null {
     }
   }
   return null;
+}
+
+
+async function executeHook(command: string, data: object) {
+  //console.log(`Executing tool_call hook: ${command}`);
+  const jsonData = JSON.stringify(data);
+  //console.log(`Piping JSON to stdin: ${jsonData}`);
+
+  return new Promise<void>((resolve, reject) => {
+    const child = spawn(command, { shell:true, stdio: ['pipe', 'inherit', 'inherit'] });
+
+    child.stdin.write(jsonData);
+    child.stdin.end();
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`Hook command failed with exit code ${code}`));
+      }
+    });
+
+    child.on('error', (err) => {
+      reject(err);
+    });
+  });
 }
 
 export async function runNonInteractive(
@@ -99,7 +127,14 @@ export async function runNonInteractive(
         const textPart = getResponseText(resp);
         if (textPart) {
           process.stdout.write(textPart);
+
         }
+        if(resp.data) {
+          process.stdout.write('\n*Inline Data:*\n '+resp.data);
+        }
+        if(resp.codeExecutionResult) {
+          process.stdout.write('\n*Code Execution Result:*\n'+resp.codeExecutionResult);
+        }        
         if (resp.functionCalls) {
           functionCalls.push(...resp.functionCalls);
         }
@@ -124,6 +159,39 @@ export async function runNonInteractive(
             toolRegistry,
             abortController.signal,
           );
+
+          // Display the tool's output to the user in non-interactive mode.
+          let output: string;
+          const toolOutput =
+            toolResponse.responseParts &&
+            typeof toolResponse.responseParts === 'object' &&
+            'functionResponse' in toolResponse.responseParts
+              ? toolResponse.responseParts.functionResponse?.response?.output
+              : null;
+
+          if (
+            toolResponse.resultDisplay &&
+            typeof toolResponse.resultDisplay === 'object' &&
+            'fileDiff' in toolResponse.resultDisplay
+          ) {
+            output = formatFileDiff(toolResponse.resultDisplay.fileDiff);
+          } else if (toolOutput && typeof toolOutput === 'string') {
+            output = toolOutput;
+          } else if (typeof toolResponse.resultDisplay === 'string') {
+            output = toolResponse.resultDisplay;
+          } else {
+            output = JSON.stringify(toolResponse, null, 2);
+          }
+          process.stdout.write(`\n*Tool Output: ${fc.name} ${JSON.stringify(fc.args)}*\n`);
+          process.stdout.write(output);
+          process.stdout.write(`\n\n`);
+
+          if (config.getHooks()?.tool_call) {
+            await executeHook(config.getHooks()!.tool_call!, {
+              toolCall: requestInfo,
+              toolResponse: toolResponse,
+            });
+          }
 
           if (toolResponse.error) {
             const isToolNotFound = toolResponse.error.message.includes(
@@ -151,8 +219,10 @@ export async function runNonInteractive(
           }
         }
         currentMessages = [{ role: 'user', parts: toolResponseParts }];
+        await autoSaveChatIfEnabled(config);
       } else {
         process.stdout.write('\n'); // Ensure a final newline
+        await autoSaveChatIfEnabled(config);
         return;
       }
     }

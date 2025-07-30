@@ -8,7 +8,7 @@ export async function loadCheckpoint(config: Config): Promise<Content[]> {
   const logger = new Logger(config.getSessionId());
   await logger.initialize();
   const geminiDir = config.getProjectTempDir();
-  console.log('--resume: geminiTmpDir', geminiDir);
+  
   if (!geminiDir) {
     return [];
   }
@@ -17,8 +17,7 @@ export async function loadCheckpoint(config: Config): Promise<Content[]> {
     const file_tail = '.json';
     const files = await fsPromises.readdir(geminiDir);
     const chatDetails: Array<{ name: string; mtime: Date }> = [];
-
-    console.log('--resume: geminiTmpDir numfiles:', files.length);
+    
     for (const file of files) {
       if (file.startsWith(file_head) && file.endsWith(file_tail)) {
         const filePath = path.join(geminiDir, file);

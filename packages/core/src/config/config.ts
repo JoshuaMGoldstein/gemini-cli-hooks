@@ -177,6 +177,9 @@ export interface ConfigParameters {
   resume?: boolean;
   autosave?: boolean;
   resumedChatTag?: string;
+  hooks?: {
+    tool_call?: string;
+  };
 }
 
 export class Config {
@@ -235,6 +238,7 @@ export class Config {
   private readonly resume: boolean;
   private readonly autosave: boolean;
   private resumedChatTag: string | undefined;
+  private readonly hooks: { tool_call?: string } | undefined;
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -288,6 +292,7 @@ export class Config {
     this.resume = params.resume ?? false;
     this.autosave = params.autosave ?? false;
     this.resumedChatTag = params.resumedChatTag;
+    this.hooks = params.hooks;
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -578,6 +583,10 @@ export class Config {
 
   getAutosaveEnabled(): boolean {
     return this.autosave;
+  }
+
+  getHooks(): { tool_call?: string } | undefined {
+    return this.hooks;
   }
 
   getResumedChatTag(): string | undefined {

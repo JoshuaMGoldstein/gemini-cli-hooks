@@ -100,6 +100,9 @@ export interface Settings {
 
   // Add other settings here.
   ideMode?: boolean;
+  hooks?: {
+    tool_call?: string;
+  };
 }
 
 export interface SettingsError {

@@ -455,6 +455,7 @@ export async function loadCliConfig(
     ideMode,
     resume: argv.resume,
     autosave: argv.autosave,
+    hooks: settings.hooks,
   });
 }
 
