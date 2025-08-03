@@ -102,6 +102,7 @@ export interface Settings {
   ideMode?: boolean;
   hooks?: {
     tool_call?: string;
+    stats?: string;
   };
 }
 

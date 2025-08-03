@@ -81,3 +81,4 @@ export { sessionId } from './utils/session.js';
 export * from './utils/browser.js';
 export { formatFileDiff } from './utils/diffUtils.js';
 export { autoSaveChatIfEnabled } from './utils/autosave.js';
+export { executeHook } from './utils/hooks.js';

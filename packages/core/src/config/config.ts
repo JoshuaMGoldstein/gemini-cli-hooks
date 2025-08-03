@@ -179,6 +179,7 @@ export interface ConfigParameters {
   resumedChatTag?: string;
   hooks?: {
     tool_call?: string;
+    stats?: string;
   };
 }
 
@@ -238,7 +239,7 @@ export class Config {
   private readonly resume: boolean;
   private readonly autosave: boolean;
   private resumedChatTag: string | undefined;
-  private readonly hooks: { tool_call?: string } | undefined;
+  private readonly hooks: { tool_call?: string; stats?: string } | undefined;
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -585,7 +586,7 @@ export class Config {
     return this.autosave;
   }
 
-  getHooks(): { tool_call?: string } | undefined {
+  getHooks(): { tool_call?: string; stats?: string } | undefined {
     return this.hooks;
   }
 
