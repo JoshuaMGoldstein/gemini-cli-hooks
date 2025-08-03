@@ -182,9 +182,9 @@ export async function runNonInteractive(
           } else {
             output = JSON.stringify(toolResponse, null, 2);
           }
-          process.stdout.write(`\n*Tool Output: ${fc.name} ${JSON.stringify(fc.args)}*\n`);
-          process.stdout.write(output);
-          process.stdout.write(`\n\n`);
+          //process.stdout.write(`\n*Tool Output: ${fc.name} ${JSON.stringify(fc.args)}*\n`);
+          //process.stdout.write(output);
+          //process.stdout.write(`\n\n`);
 
           if (config.getHooks()?.tool_call) {
             await executeHook(config.getHooks()!.tool_call!, {
