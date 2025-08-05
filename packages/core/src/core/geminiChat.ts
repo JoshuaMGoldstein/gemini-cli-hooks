@@ -131,6 +131,11 @@ export class GeminiChat {
   // A promise to represent the current state of the message being sent to the
   // model.
   private sendPromise: Promise<void> = Promise.resolve();
+  private usage: GenerateContentResponseUsageMetadata = {
+    promptTokenCount: 0,
+    candidatesTokenCount: 0,
+    totalTokenCount: 0,
+  };
 
   constructor(
     private readonly config: Config,
@@ -167,6 +172,17 @@ export class GeminiChat {
     usageMetadata?: GenerateContentResponseUsageMetadata,
     responseText?: string,
   ): Promise<void> {
+    if (usageMetadata) {
+      this.usage.promptTokenCount =
+        (this.usage.promptTokenCount || 0) +
+        (usageMetadata.promptTokenCount || 0);
+      this.usage.candidatesTokenCount =
+        (this.usage.candidatesTokenCount || 0) +
+        (usageMetadata.candidatesTokenCount || 0);
+      this.usage.totalTokenCount =
+        (this.usage.totalTokenCount || 0) +
+        (usageMetadata.totalTokenCount || 0);
+    }
     logApiResponse(
       this.config,
       new ApiResponseEvent(
@@ -352,6 +368,10 @@ export class GeminiChat {
       this.sendPromise = Promise.resolve();
       throw error;
     }
+  }
+
+  async getStats(): Promise<GenerateContentResponseUsageMetadata> {
+    return this.usage;
   }
 
   /**

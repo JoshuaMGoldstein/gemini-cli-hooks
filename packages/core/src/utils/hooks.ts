@@ -6,11 +6,18 @@
 
 import { spawn } from 'child_process';
 
-export async function executeHook(command: string, data: object) {
+export async function executeHook(
+  command: string,
+  data: object,
+  env: Record<string, string>,
+) {
   const jsonData = JSON.stringify(data);
 
   return new Promise<void>((resolve, reject) => {
-    const child = spawn(command, { shell: true });
+    const child = spawn(command, {
+      shell: true,
+      env: { ...process.env, ...env },
+    });
 
     child.stdin.write(jsonData);
     child.stdin.end();

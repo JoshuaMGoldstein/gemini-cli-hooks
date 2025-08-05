@@ -13,6 +13,7 @@ import {
   isTelemetrySdkInitialized,
   formatFileDiff,
   autoSaveChatIfEnabled,
+  executeHook,
 } from '@google/gemini-cli-core';
 import {
   Content,
@@ -20,7 +21,6 @@ import {
   FunctionCall,
   GenerateContentResponse,
 } from '@google/genai';
-import { spawn } from 'child_process';
 import { parseAndFormatApiError } from './ui/utils/errorParsing.js';
 
 function getResponseText(response: GenerateContentResponse): string | null {
@@ -46,30 +46,7 @@ function getResponseText(response: GenerateContentResponse): string | null {
 }
 
 
-async function executeHook(command: string, data: object) {
-  //console.log(`Executing tool_call hook: ${command}`);
-  const jsonData = JSON.stringify(data);
-  //console.log(`Piping JSON to stdin: ${jsonData}`);
 
-  return new Promise<void>((resolve, reject) => {
-    const child = spawn(command, { shell:true, stdio: ['pipe', 'inherit', 'inherit'] });
-
-    child.stdin.write(jsonData);
-    child.stdin.end();
-
-    child.on('close', (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`Hook command failed with exit code ${code}`));
-      }
-    });
-
-    child.on('error', (err) => {
-      reject(err);
-    });
-  });
-}
 
 export async function runNonInteractive(
   config: Config,
@@ -186,11 +163,21 @@ export async function runNonInteractive(
           //process.stdout.write(output);
           //process.stdout.write(`\n\n`);
 
+          const tag = config.getResumedChatTag() || '';
+          const checkpointDir = config.getProjectTempDir();
+
           if (config.getHooks()?.tool_call) {
-            await executeHook(config.getHooks()!.tool_call!, {
-              toolCall: requestInfo,
-              toolResponse: toolResponse,
-            });
+            await executeHook(
+              config.getHooks()!.tool_call!,
+              {
+                toolCall: requestInfo,
+                toolResponse: toolResponse,
+              },
+              {
+                TAG: tag,
+                TAGDIR: checkpointDir,
+              },
+            );
           }
 
           if (toolResponse.error) {
@@ -219,9 +206,39 @@ export async function runNonInteractive(
           }
         }
         currentMessages = [{ role: 'user', parts: toolResponseParts }];
+        const tag = config.getResumedChatTag() || '';
+        const checkpointDir = config.getProjectTempDir();
+        if (config.getHooks()?.stats) {
+          const stats = await chat.getStats();
+          await executeHook(
+            config.getHooks()!.stats!,
+            {
+              stats,
+            },
+            {
+              TAG: tag,
+              TAGDIR: checkpointDir,
+            },
+          );
+        }
         await autoSaveChatIfEnabled(config);
       } else {
         process.stdout.write('\n'); // Ensure a final newline
+        const tag = config.getResumedChatTag() || '';
+        const checkpointDir = config.getProjectTempDir();
+        if (config.getHooks()?.stats) {
+          const stats = await chat.getStats();
+          await executeHook(
+            config.getHooks()!.stats!,
+            {
+              stats,
+            },
+            {
+              TAG: tag,
+              TAGDIR: checkpointDir,
+            },
+          );
+        }
         await autoSaveChatIfEnabled(config);
         return;
       }
