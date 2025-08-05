@@ -181,6 +181,8 @@ export interface ConfigParameters {
     tool_call?: string;
     stats?: string;
   };
+  openAiApiKey?: string;
+  openAiBaseUrl?: string;
 }
 
 export class Config {
@@ -240,6 +242,8 @@ export class Config {
   private readonly autosave: boolean;
   private resumedChatTag: string | undefined;
   private readonly hooks: { tool_call?: string; stats?: string } | undefined;
+  private readonly openAiApiKey: string | undefined;
+  private readonly openAiBaseUrl: string | undefined;
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -294,6 +298,8 @@ export class Config {
     this.autosave = params.autosave ?? false;
     this.resumedChatTag = params.resumedChatTag;
     this.hooks = params.hooks;
+    this.openAiApiKey = params.openAiApiKey;
+    this.openAiBaseUrl = params.openAiBaseUrl;
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -588,6 +594,14 @@ export class Config {
 
   getHooks(): { tool_call?: string; stats?: string } | undefined {
     return this.hooks;
+  }
+
+  getOpenAiApiKey(): string | undefined {
+    return this.openAiApiKey;
+  }
+
+  getOpenAiBaseUrl(): string | undefined {
+    return this.openAiBaseUrl;
   }
 
   getResumedChatTag(): string | undefined {

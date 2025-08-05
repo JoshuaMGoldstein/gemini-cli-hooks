@@ -392,7 +392,7 @@ export async function loadCliConfig(
 
   const sandboxConfig = await loadSandboxConfig(settings, argv);
 
-  return new Config({
+  const config = new Config({
     sessionId,
     embeddingModel: DEFAULT_GEMINI_EMBEDDING_MODEL,
     sandbox: sandboxConfig,
@@ -456,7 +456,10 @@ export async function loadCliConfig(
     resume: argv.resume,
     autosave: argv.autosave,
     hooks: settings.hooks,
+    openAiApiKey: process.env.OPENAI_API_KEY,
+    openAiBaseUrl: process.env.OPENAI_BASE_URL,
   });
+  return config;
 }
 
 function mergeMcpServers(settings: Settings, extensions: Extension[]) {

@@ -12,12 +12,19 @@ import {
   EmbedContentResponse,
   EmbedContentParameters,
   GoogleGenAI,
+  Part,
 } from '@google/genai';
 import { createCodeAssistContentGenerator } from '../code_assist/codeAssist.js';
 import { DEFAULT_GEMINI_MODEL } from '../config/models.js';
 import { Config } from '../config/config.js';
 import { getEffectiveModel } from './modelCheck.js';
 import { UserTierId } from '../code_assist/types.js';
+import OpenAI from 'openai';
+import { Tiktoken, getEncoding } from 'js-tiktoken';
+import {
+  toGeminiRequest,
+  toGeminiResponse,
+} from '../utils/openai-converters.js';
 
 /**
  * Interface abstracting the core functionalities for generating content and counting tokens.
@@ -52,6 +59,75 @@ export type ContentGeneratorConfig = {
   authType?: AuthType | undefined;
   proxy?: string | undefined;
 };
+
+class OpenAIContentGenerator implements ContentGenerator {
+  private openai: OpenAI;
+  private tokenizer: Tiktoken;
+
+  constructor(apiKey: string, baseUrl: string) {
+    this.openai = new OpenAI({
+      apiKey,
+      baseURL: baseUrl,
+    });
+    this.tokenizer = getEncoding('cl100k_base');
+  }
+
+  async generateContent(
+    request: GenerateContentParameters,
+  ): Promise<GenerateContentResponse> {
+    const mappedRequest = toGeminiRequest(request);
+    try {
+      const response = await this.openai.chat.completions.create({
+        ...mappedRequest,
+        stream: false,
+      });
+      return toGeminiResponse(response);
+    } catch (error) {
+      console.error(
+        `Error during OpenAI API call. Request URL: ${this.openai.baseURL}/chat/completions`,
+      );
+      throw error;
+    }
+  }
+
+  async generateContentStream(
+    request: GenerateContentParameters,
+  ): Promise<AsyncGenerator<GenerateContentResponse>> {
+    const mappedRequest = toGeminiRequest(request);
+    const stream = await this.openai.chat.completions.create({
+      ...mappedRequest,
+      stream: true,
+    });
+
+    async function* mapStream(): AsyncGenerator<GenerateContentResponse> {
+      for await (const chunk of stream) {
+        yield toGeminiResponse(chunk);
+      }
+    }
+
+    return mapStream();
+  }
+
+  async countTokens(
+    request: CountTokensParameters,
+  ): Promise<CountTokensResponse> {
+    const contents = Array.isArray(request) ? request : [request];
+    let totalTokens = 0;
+    for (const content of contents) {
+      const text = (content.parts as Part[])
+        .map((part) => part.text)
+        .join('');
+      totalTokens += this.tokenizer.encode(text).length;
+    }
+    return { totalTokens };
+  }
+
+  async embedContent(
+    _request: EmbedContentParameters,
+  ): Promise<EmbedContentResponse> {
+    throw new Error('embedContent is not supported for OpenAI models.');
+  }
+}
 
 export function createContentGeneratorConfig(
   config: Config,
@@ -109,6 +185,16 @@ export async function createContentGenerator(
   gcConfig: Config,
   sessionId?: string,
 ): Promise<ContentGenerator> {
+  const openAiApiKey = gcConfig.getOpenAiApiKey();
+  const openAiBaseUrl = gcConfig.getOpenAiBaseUrl();
+
+  if (openAiApiKey && openAiBaseUrl) {
+    const normalizedUrl = openAiBaseUrl.endsWith('/')
+      ? openAiBaseUrl
+      : `${openAiBaseUrl}/`;
+    return new OpenAIContentGenerator(openAiApiKey, normalizedUrl);
+  }
+
   const version = process.env.CLI_VERSION || process.version;
   const httpOptions = {
     headers: {
