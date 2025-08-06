@@ -165,6 +165,7 @@ export interface ConfigParameters {
   fileDiscoveryService?: FileDiscoveryService;
   bugCommand?: BugCommandSettings;
   model: string;
+  flashModel?: string;
   extensionContextFilePaths?: string[];
   maxSessionTurns?: number;
   experimentalAcp?: boolean;
@@ -221,6 +222,7 @@ export class Config {
   private readonly cwd: string;
   private readonly bugCommand: BugCommandSettings | undefined;
   private readonly model: string;
+  private readonly flashModel: string | undefined;
   private readonly extensionContextFilePaths: string[];
   private readonly noBrowser: boolean;
   private readonly ideMode: boolean;
@@ -285,6 +287,7 @@ export class Config {
     this.fileDiscoveryService = params.fileDiscoveryService ?? null;
     this.bugCommand = params.bugCommand;
     this.model = params.model;
+    this.flashModel = params.flashModel;
     this.extensionContextFilePaths = params.extensionContextFilePaths ?? [];
     this.maxSessionTurns = params.maxSessionTurns ?? -1;
     this.experimentalAcp = params.experimentalAcp ?? false;
@@ -533,6 +536,10 @@ export class Config {
 
   getBugCommand(): BugCommandSettings | undefined {
     return this.bugCommand;
+  }
+
+  getFlashModel(): string | undefined {
+    return this.flashModel;
   }
 
   getFileService(): FileDiscoveryService {

@@ -13,6 +13,7 @@ import {
   EmbedContentParameters,
   GoogleGenAI,
   Part,
+  Content
 } from '@google/genai';
 import { createCodeAssistContentGenerator } from '../code_assist/codeAssist.js';
 import { DEFAULT_GEMINI_MODEL } from '../config/models.js';
@@ -121,14 +122,26 @@ class OpenAIContentGenerator implements ContentGenerator {
   async countTokens(
     request: CountTokensParameters,
   ): Promise<CountTokensResponse> {
-    const contents = Array.isArray(request) ? request : [request];
+    const contents = Array.isArray(request.contents)?request.contents:[request.contents];//Array.isArray(request) ? request : [request];
     let totalTokens = 0;
+    let textArray = [];
     for (const content of contents) {
-      const text = (content.parts as Part[])
-        .map((part) => part.text)
-        .join('');
-      totalTokens += this.tokenizer.encode(text).length;
+      if(typeof content === 'string') {
+        textArray.push(content);
+      } else if ((content as Part).text) {
+        textArray.push((content as Part).text || '')
+      } else {
+        let parts = (content as Content).parts;
+        if(parts) {
+          for(var p=0; p<parts.length; p++) {
+            if(parts[p].text) {
+              textArray.push(parts[p].text || '')
+            }
+          }
+        }        
+      }
     }
+    totalTokens += this.tokenizer.encode(textArray.join(' ')).length;
     return { totalTokens };
   }
 
@@ -199,10 +212,7 @@ export async function createContentGenerator(
   const openAiBaseUrl = gcConfig.getOpenAiBaseUrl();
 
   if (openAiApiKey && openAiBaseUrl) {
-    const normalizedUrl = openAiBaseUrl.endsWith('/')
-      ? openAiBaseUrl
-      : `${openAiBaseUrl}/`;
-    return new OpenAIContentGenerator(openAiApiKey, normalizedUrl, gcConfig);
+    return new OpenAIContentGenerator(openAiApiKey, openAiBaseUrl, gcConfig);
   }
 
   const version = process.env.CLI_VERSION || process.version;

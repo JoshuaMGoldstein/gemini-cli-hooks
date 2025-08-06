@@ -50,11 +50,7 @@ import { FlashDecidedToContinueEvent } from '../telemetry/types.js';
 import { loadCheckpoint } from '../utils/checkpoint.js';
 //Added for --autosave
 import { autoSaveChatIfEnabled } from '../utils/autosave.js';
-
-function isThinkingSupported(model: string) {
-  if (model.startsWith('gemini-2.5')) return true;
-  return false;
-}
+import { isThinkingSupported } from './modelCheck.js';
 
 /**
  * Returns the index of the content after the fraction of the total characters in the history.
@@ -409,6 +405,7 @@ export class GeminiClient {
         this.getChat(),
         this,
         signal,
+        this.config,
       );
       if (nextSpeakerCheck?.next_speaker === 'model') {
         logFlashDecidedToContinue(
@@ -440,7 +437,10 @@ export class GeminiClient {
   ): Promise<Record<string, unknown>> {
     // Use current model from config instead of hardcoded Flash model
     const modelToUse =
-      model || this.config.getModel() || DEFAULT_GEMINI_FLASH_MODEL;
+      model ||
+      this.config.getFlashModel() ||
+      this.config.getModel() ||
+      DEFAULT_GEMINI_FLASH_MODEL;
     try {
       const userMemory = this.config.getUserMemory();
       const systemInstruction = getCoreSystemPrompt(userMemory);

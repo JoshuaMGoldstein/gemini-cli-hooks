@@ -18,6 +18,7 @@ import {
   ChatCompletionMessageParam,
   ChatCompletionTool,
 } from 'openai/resources';
+import { isThinkingSupported } from '../core/modelCheck.js';
 
 function toOpenAiContent(parts: Part[]): string {
   if (!Array.isArray(parts)) {
@@ -83,6 +84,7 @@ export function toGeminiRequest(request: GenerateContentParameters): {
   top_p: number;
   tools?: ChatCompletionTool[];
   tool_choice?: 'auto';
+  reasoning?: Record<string, unknown>;
 } {
   const { contents, config } = request;
   const tools = config?.tools;
@@ -105,6 +107,9 @@ export function toGeminiRequest(request: GenerateContentParameters): {
     });
 
   const openAiTools = tools ? toOpenAiTools(tools as Tool[]) : undefined;
+  const reasoning = isThinkingSupported(request.model || '')
+    ? {}
+    : undefined;
 
   return {
     messages,
@@ -113,6 +118,7 @@ export function toGeminiRequest(request: GenerateContentParameters): {
     top_p: config?.topP || 1,
     tools: openAiTools,
     tool_choice: openAiTools ? 'auto' : undefined,
+    reasoning,
   };
 }
 

@@ -47,9 +47,11 @@ describe('checkNextSpeaker', () => {
   let MockConfig: Mock;
   const abortSignal = new AbortController().signal;
 
+  let mockConfigInstance: Config;
+
   beforeEach(() => {
     MockConfig = vi.mocked(Config);
-    const mockConfigInstance = new MockConfig(
+    mockConfigInstance = new MockConfig(
       'test-api-key',
       'gemini-pro',
       false,
@@ -90,6 +92,7 @@ describe('checkNextSpeaker', () => {
       chatInstance,
       mockGeminiClient,
       abortSignal,
+      mockConfigInstance,
     );
     expect(result).toBeNull();
     expect(mockGeminiClient.generateJson).not.toHaveBeenCalled();
@@ -103,6 +106,7 @@ describe('checkNextSpeaker', () => {
       chatInstance,
       mockGeminiClient,
       abortSignal,
+      mockConfigInstance,
     );
     expect(result).toBeNull();
     expect(mockGeminiClient.generateJson).not.toHaveBeenCalled();
@@ -122,6 +126,7 @@ describe('checkNextSpeaker', () => {
       chatInstance,
       mockGeminiClient,
       abortSignal,
+      mockConfigInstance,
     );
     expect(result).toEqual(mockApiResponse);
     expect(mockGeminiClient.generateJson).toHaveBeenCalledTimes(1);
@@ -141,6 +146,7 @@ describe('checkNextSpeaker', () => {
       chatInstance,
       mockGeminiClient,
       abortSignal,
+      mockConfigInstance,
     );
     expect(result).toEqual(mockApiResponse);
   });
@@ -159,6 +165,7 @@ describe('checkNextSpeaker', () => {
       chatInstance,
       mockGeminiClient,
       abortSignal,
+      mockConfigInstance,
     );
     expect(result).toEqual(mockApiResponse);
   });
@@ -178,6 +185,7 @@ describe('checkNextSpeaker', () => {
       chatInstance,
       mockGeminiClient,
       abortSignal,
+      mockConfigInstance,
     );
     expect(result).toBeNull();
     consoleWarnSpy.mockRestore();
@@ -195,6 +203,7 @@ describe('checkNextSpeaker', () => {
       chatInstance,
       mockGeminiClient,
       abortSignal,
+      mockConfigInstance,
     );
     expect(result).toBeNull();
   });
@@ -212,6 +221,7 @@ describe('checkNextSpeaker', () => {
       chatInstance,
       mockGeminiClient,
       abortSignal,
+      mockConfigInstance,
     );
     expect(result).toBeNull();
   });
@@ -229,6 +239,7 @@ describe('checkNextSpeaker', () => {
       chatInstance,
       mockGeminiClient,
       abortSignal,
+      mockConfigInstance,
     );
     expect(result).toBeNull();
   });
@@ -243,7 +254,12 @@ describe('checkNextSpeaker', () => {
     };
     (mockGeminiClient.generateJson as Mock).mockResolvedValue(mockApiResponse);
 
-    await checkNextSpeaker(chatInstance, mockGeminiClient, abortSignal);
+    await checkNextSpeaker(
+      chatInstance,
+      mockGeminiClient,
+      abortSignal,
+      mockConfigInstance,
+    );
 
     expect(mockGeminiClient.generateJson).toHaveBeenCalled();
     const generateJsonCall = (mockGeminiClient.generateJson as Mock).mock

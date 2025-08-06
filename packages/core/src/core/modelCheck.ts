@@ -74,3 +74,16 @@ export async function getEffectiveModel(
     return currentConfiguredModel;
   }
 }
+
+export function isThinkingSupported(model: string) {
+  if (model.startsWith('gemini-2.5')) return true;
+  if (model.startsWith('gpt-4') || model.startsWith('o1')) return true;
+  if (model.indexOf('deepseek-r1') >= 0) return true;
+  if (model == 'mistralai/codestral-2508') return true;
+  if (model.indexOf('anthropic/claude-3.7-sonnet') >= 0) return true; //:thinking
+  if (model == 'anthropic/claude-opus-4.1') return true;
+  if (model == 'moonshotai/kimi-vl-a3b-thinking') return true;
+  if (model == 'qwen/qwen3-235b-a22b-thinking-2507') return true;
+  if (model == 'openrouter/horizon-beta') return true;
+  return false;
+}

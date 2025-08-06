@@ -6,6 +6,7 @@
 
 import { Content, SchemaUnion, Type } from '@google/genai';
 import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
+import { Config } from '../config/config.js';
 import { GeminiClient } from '../core/client.js';
 import { GeminiChat } from '../core/geminiChat.js';
 import { isFunctionResponse } from './messageInspectors.js';
@@ -63,6 +64,7 @@ export async function checkNextSpeaker(
   chat: GeminiChat,
   geminiClient: GeminiClient,
   abortSignal: AbortSignal,
+  config: Config,
 ): Promise<NextSpeakerResponse | null> {
   // We need to capture the curated history because there are many moments when the model will return invalid turns
   // that when passed back up to the endpoint will break subsequent calls. An example of this is when the model decides
@@ -128,11 +130,14 @@ export async function checkNextSpeaker(
   ];
 
   try {
+    const model =
+      config.getFlashModel() ||
+      (config.getOpenAiApiKey() ? undefined : DEFAULT_GEMINI_FLASH_MODEL);
     const parsedResponse = (await geminiClient.generateJson(
       contents,
       RESPONSE_SCHEMA,
       abortSignal,
-      DEFAULT_GEMINI_FLASH_MODEL,
+      model,
     )) as unknown as NextSpeakerResponse;
 
     if (
