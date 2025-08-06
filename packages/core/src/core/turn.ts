@@ -10,6 +10,7 @@ import {
   FunctionCall,
   FunctionDeclaration,
   FinishReason,
+  Part,
 } from '@google/genai';
 import {
   ToolCallConfirmationDetails,
@@ -74,8 +75,8 @@ export interface ToolCallRequestInfo {
 export interface ToolCallResponseInfo {
   callId: string;
   responseParts: PartListUnion;
-  resultDisplay: ToolResultDisplay | undefined;
-  error: Error | undefined;
+  resultDisplay?: ToolResultDisplay;
+  error?: Error;
 }
 
 export interface ServerToolCallConfirmationDetails {

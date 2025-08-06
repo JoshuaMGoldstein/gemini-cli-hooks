@@ -59,6 +59,14 @@ function isValidContent(content: Content): boolean {
     if (part === undefined || Object.keys(part).length === 0) {
       return false;
     }
+    // A part is valid if it has text, a function call, or is a thought.
+    if (
+      part.text === undefined &&
+      !part.functionCall &&
+      !part.thought
+    ) {
+      return false;
+    }
     if (!part.thought && part.text !== undefined && part.text === '') {
       return false;
     }
@@ -581,8 +589,32 @@ export class GeminiChat {
         this.getFinalUsageMetadata(chunks),
         fullText,
       );
+
+      // Aggregate all parts into a single Content object for history.
+      const aggregatedContent: Content = { role: 'model', parts: [] };
+      const textParts: string[] = [];
+      const functionCallParts: Part[] = [];
+
+      for (const part of allParts) {
+        if (part.text) {
+          textParts.push(part.text);
+        }
+        if (part.functionCall) {
+          functionCallParts.push(part);
+        }
+      }
+
+      if (textParts.join('').length > 0) {
+        aggregatedContent.parts!.push({ text: textParts.join('') });
+      }
+      if (functionCallParts.length > 0) {
+        aggregatedContent.parts!.push(...functionCallParts);
+      }
+
+      this.recordHistory(inputContent, [aggregatedContent]);
+    } else {
+      this.recordHistory(inputContent, outputContent);
     }
-    this.recordHistory(inputContent, outputContent);
   }
 
   private recordHistory(

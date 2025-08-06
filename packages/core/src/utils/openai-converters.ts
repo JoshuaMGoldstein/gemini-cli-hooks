@@ -88,23 +88,64 @@ export function toGeminiRequest(request: GenerateContentParameters): {
 } {
   const { contents, config } = request;
   const tools = config?.tools;
-  const messages: ChatCompletionMessageParam[] = (
+  const messages: ChatCompletionMessageParam[] = [];
+  const history = (
     Array.isArray(contents) ? contents : [contents]
-  )
-    .filter((content): content is Content => typeof content === 'object')
-    .map((content: Content) => {
-      if (content.role === 'tool' && content.parts) {
-        return {
+  ).filter((content): content is Content => typeof content === 'object');
+
+  for (var h=0; h<history.length; h++) {
+    let content =history[h];
+    let priorcontent = h>0?history[h-1]:null;
+    
+    const functionCallParts = (priorcontent && priorcontent.role == 'model')?priorcontent.parts?.filter((part: any) => 'functionCall' in part) || [] : [];
+    const functionResponseParts =
+      content.parts?.filter((part: any) => 'functionResponse' in part) || [];
+
+    if (functionResponseParts.length > 0) {
+      for (const responsePart of functionResponseParts as any[]) {
+        const functionResponse = responsePart.functionResponse;
+        const matchingCall = functionCallParts.find(
+          (callPart: any) =>
+            callPart.functionCall.id === functionResponse.id,
+        );
+
+        const functionCall = (matchingCall as any)?.functionCall;
+
+        messages.push({
+          role: 'assistant',
+          content: null,
+          tool_calls: [
+            {
+              id: functionResponse.id,
+              type: 'function',
+              function: {
+                name: functionCall?.name || functionResponse.name,
+                arguments: functionCall?.args
+                  ? JSON.stringify(functionCall.args)
+                  : '{}',
+              },
+            },
+          ],
+        });
+
+        messages.push({
           role: 'tool',
-          tool_call_id: (content.parts[0] as any).functionResponse.id,
-          content: JSON.stringify((content.parts[0] as any).functionResponse.response),
-        };
+          tool_call_id: functionResponse.id,
+          content: JSON.stringify(functionResponse.response),
+        });
       }
-      return {
+    } else if (functionCallParts.length > 0) {
+      // This block is intentionally left empty.
+      // We do not want to generate an assistant message for a tool call
+      // unless we have the corresponding tool response.
+    } else {
+      // Regular user or model message
+      messages.push({
         role: content.role === 'model' ? 'assistant' : 'user',
         content: toOpenAiContent(content.parts as Part[]),
-      };
-    });
+      });
+    }
+  }
 
   const openAiTools = tools ? toOpenAiTools(tools as Tool[]) : undefined;
   const reasoning = isThinkingSupported(request.model || '')
@@ -179,13 +220,24 @@ export function toGeminiResponse(
     }
   }
 
+  const parts: Part[] = [];
+  if (part.text) {
+    parts.push({ text: part.text });
+  }
+
+  if (functionCalls.length > 0) {
+    for (const functionCall of functionCalls) {
+      parts.push({ functionCall });
+    }
+  }
+
   return {
     candidates: [
       {
         index: 0,
         content: {
           role: 'model',
-          parts: [part],
+          parts: parts,
         },
         finishReason: choice.finish_reason || undefined,
       },
