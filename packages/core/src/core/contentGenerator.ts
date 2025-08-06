@@ -63,19 +63,25 @@ export type ContentGeneratorConfig = {
 class OpenAIContentGenerator implements ContentGenerator {
   private openai: OpenAI;
   private tokenizer: Tiktoken;
+  private config: Config;
 
-  constructor(apiKey: string, baseUrl: string) {
+  constructor(apiKey: string, baseUrl: string, config: Config) {
     this.openai = new OpenAI({
       apiKey,
       baseURL: baseUrl,
     });
     this.tokenizer = getEncoding('cl100k_base');
+    this.config = config;
   }
 
   async generateContent(
     request: GenerateContentParameters,
   ): Promise<GenerateContentResponse> {
     const mappedRequest = toGeminiRequest(request);
+    if (this.config.getDebugMode()) {
+      console.log('OpenAI Request URL:', this.openai.baseURL + 'chat/completions');
+      console.log('OpenAI Request:', JSON.stringify(mappedRequest, null, 2));
+    }
     try {
       const response = await this.openai.chat.completions.create({
         ...mappedRequest,
@@ -94,6 +100,10 @@ class OpenAIContentGenerator implements ContentGenerator {
     request: GenerateContentParameters,
   ): Promise<AsyncGenerator<GenerateContentResponse>> {
     const mappedRequest = toGeminiRequest(request);
+    if (this.config.getDebugMode()) {
+      console.log('OpenAI Request URL:', this.openai.baseURL + 'chat/completions');
+      console.log('OpenAI Request:', JSON.stringify(mappedRequest, null, 2));
+    }
     const stream = await this.openai.chat.completions.create({
       ...mappedRequest,
       stream: true,
@@ -192,7 +202,7 @@ export async function createContentGenerator(
     const normalizedUrl = openAiBaseUrl.endsWith('/')
       ? openAiBaseUrl
       : `${openAiBaseUrl}/`;
-    return new OpenAIContentGenerator(openAiApiKey, normalizedUrl);
+    return new OpenAIContentGenerator(openAiApiKey, normalizedUrl, gcConfig);
   }
 
   const version = process.env.CLI_VERSION || process.version;

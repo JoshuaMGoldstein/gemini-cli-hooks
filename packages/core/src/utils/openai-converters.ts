@@ -27,19 +27,56 @@ function toOpenAiContent(parts: Part[]): string {
 }
 
 export function toOpenAiTools(tools: Tool[]): ChatCompletionTool[] {
+  // Helper function to recursively convert schema type values to lowercase
+  const convertSchemaTypes = (schema: any): any => {
+    if (!schema) {
+      return schema;
+    }
+
+    const newSchema = { ...schema };
+
+    if (newSchema.type) {
+      newSchema.type = newSchema.type.toLowerCase();
+    }
+
+    if (newSchema.minLength && typeof newSchema.minLength === 'string') {
+      newSchema.minLength = parseInt(newSchema.minLength, 10);
+    }
+
+    if (newSchema.minItems && typeof newSchema.minItems === 'string') {
+      newSchema.minItems = parseInt(newSchema.minItems, 10);
+    }
+
+    if (newSchema.properties) {
+      newSchema.properties = Object.entries(newSchema.properties).reduce(
+        (acc, [key, value]) => {
+          acc[key] = convertSchemaTypes(value);
+          return acc;
+        },
+        {} as { [key: string]: any },
+      );
+    }
+
+    if (newSchema.items) {
+      newSchema.items = convertSchemaTypes(newSchema.items);
+    }
+
+    return newSchema;
+  };
+
   return tools.flatMap(tool =>
     (tool.functionDeclarations || []).map(func => ({
       type: 'function' as const,
       function: {
         name: func.name || '',
         description: func.description || '',
-        parameters: func.parameters as any,
+        parameters: convertSchemaTypes(func.parameters),
       },
     }))
   );
 }
 
-export function toGeminiRequest(request: GenerateContentParameters & { tools?: Tool[] }): {
+export function toGeminiRequest(request: GenerateContentParameters): {
   messages: ChatCompletionMessageParam[];
   model: string;
   temperature: number;
@@ -47,7 +84,8 @@ export function toGeminiRequest(request: GenerateContentParameters & { tools?: T
   tools?: ChatCompletionTool[];
   tool_choice?: 'auto';
 } {
-  const { contents, config, tools } = request;
+  const { contents, config } = request;
+  const tools = config?.tools;
   const messages: ChatCompletionMessageParam[] = (
     Array.isArray(contents) ? contents : [contents]
   )
@@ -66,7 +104,7 @@ export function toGeminiRequest(request: GenerateContentParameters & { tools?: T
       };
     });
 
-  const openAiTools = tools ? toOpenAiTools(tools) : undefined;
+  const openAiTools = tools ? toOpenAiTools(tools as Tool[]) : undefined;
 
   return {
     messages,
@@ -77,6 +115,8 @@ export function toGeminiRequest(request: GenerateContentParameters & { tools?: T
     tool_choice: openAiTools ? 'auto' : undefined,
   };
 }
+
+const partialToolCalls: { [key: string]: { id: string; name: string; arguments: string } } = {};
 
 export function toGeminiResponse(
   response: ChatCompletion | ChatCompletionChunk,
@@ -101,14 +141,35 @@ export function toGeminiResponse(
     part.text = choice.delta.content || '';
     if (choice.delta.tool_calls) {
       for (const toolCall of choice.delta.tool_calls) {
-        if (toolCall.function && toolCall.function.arguments) {
-          functionCalls.push({
-            name: toolCall.function.name,
-            args: JSON.parse(toolCall.function.arguments),
-            id: toolCall.id,
-          });
+        const toolCallIndex = toolCall.index;
+        if (toolCall.id) {
+          if (!partialToolCalls[toolCallIndex]) {
+            partialToolCalls[toolCallIndex] = { id: '', name: '', arguments: '' };
+          }
+          partialToolCalls[toolCallIndex].id = toolCall.id;
+        }
+        if (toolCall.function?.name) {
+          partialToolCalls[toolCallIndex].name = toolCall.function.name;
+        }
+        if (toolCall.function?.arguments) {
+          partialToolCalls[toolCallIndex].arguments += toolCall.function.arguments;
         }
       }
+    }
+  }
+
+  if (choice.finish_reason === 'tool_calls') {
+    for (const key in partialToolCalls) {
+      const toolCall = partialToolCalls[key];
+      functionCalls.push({
+        name: toolCall.name,
+        args: JSON.parse(toolCall.arguments),
+        id: toolCall.id,
+      });
+    }
+    // Clear the partial tool calls for the next response
+    for (const key in partialToolCalls) {
+      delete partialToolCalls[key];
     }
   }
 

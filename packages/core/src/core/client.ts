@@ -131,12 +131,13 @@ export class GeminiClient {
     );
 
     // This section implements the --resume functionality.
-    if (this.config.getResumeEnabled()) {          
+    if (this.config.getResumeEnabled()) {
       const history = await loadCheckpoint(this.config);
       this.chat = await this.startChat(history, false);
     } else {
       this.chat = await this.startChat();
     }
+    await this.setTools();
   }
 
   getContentGenerator(): ContentGenerator {
@@ -253,9 +254,6 @@ export class GeminiClient {
   }
 
   async startChat(extraHistory?: Content[], prependEnvironmentHistory:boolean=true): Promise<GeminiChat> {
-    const toolRegistry = await this.config.getToolRegistry();
-    const toolDeclarations = toolRegistry.getFunctionDeclarations();
-    const tools: Tool[] = [{ functionDeclarations: toolDeclarations }];
     let history: Content[];
 
     if (this.initialHistory) {
@@ -296,7 +294,6 @@ export class GeminiClient {
         {
           systemInstruction,
           ...generateContentConfigWithThinking,
-          tools,
         },
         history,
       );
