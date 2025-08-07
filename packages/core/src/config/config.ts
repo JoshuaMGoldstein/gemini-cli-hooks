@@ -132,6 +132,15 @@ export type FlashFallbackHandler = (
   error?: unknown,
 ) => Promise<boolean | string | null>;
 
+export interface AutosaveSettings {
+  compressafter: number;
+  truncateafter: number;
+  truncatenewtag: boolean;
+  compressnewtag: boolean;
+  minstartingtokens: number;
+  truncateby?: number;
+}
+
 export interface ConfigParameters {
   sessionId: string;
   embeddingModel?: string;
@@ -176,7 +185,7 @@ export interface ConfigParameters {
   summarizeToolOutput?: Record<string, SummarizeToolOutputSettings>;
   ideMode?: boolean;
   resume?: boolean;
-  autosave?: boolean;
+  autosave?: boolean | AutosaveSettings;
   resumedChatTag?: string;
   hooks?: {
     tool_call?: string;
@@ -241,7 +250,7 @@ export class Config {
     | undefined;
   private readonly experimentalAcp: boolean = false;
   private readonly resume: boolean;
-  private readonly autosave: boolean;
+  private readonly autosave: boolean | AutosaveSettings;
   private resumedChatTag: string | undefined;
   private readonly hooks: { tool_call?: string; stats?: string } | undefined;
   private readonly openAiApiKey: string | undefined;
@@ -596,7 +605,14 @@ export class Config {
   }
 
   getAutosaveEnabled(): boolean {
-    return this.autosave;
+    return !!this.autosave;
+  }
+
+  getAutosaveSettings(): AutosaveSettings | undefined {
+    if (typeof this.autosave === 'object') {
+      return this.autosave;
+    }
+    return undefined;
   }
 
   getHooks(): { tool_call?: string; stats?: string } | undefined {
