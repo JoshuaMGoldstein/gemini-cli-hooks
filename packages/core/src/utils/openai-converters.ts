@@ -14,6 +14,7 @@ import {
 } from '@google/genai';
 import {
   ChatCompletion,
+  ChatCompletionAssistantMessageParam,
   ChatCompletionChunk,
   ChatCompletionMessageParam,
   ChatCompletionTool,
@@ -85,6 +86,7 @@ export function toGeminiRequest(request: GenerateContentParameters): {
   tools?: ChatCompletionTool[];
   tool_choice?: 'auto';
   reasoning?: Record<string, unknown>;
+  response_format?: { type: 'json_object' };
 } {
   const { contents, config } = request;
   const tools = config?.tools;
@@ -93,24 +95,35 @@ export function toGeminiRequest(request: GenerateContentParameters): {
     Array.isArray(contents) ? contents : [contents]
   ).filter((content): content is Content => typeof content === 'object');
 
-  for (var h=0; h<history.length; h++) {
-    let content =history[h];
-    let priorcontent = h>0?history[h-1]:null;
-    
-    const functionCallParts = (priorcontent && priorcontent.role == 'model')?priorcontent.parts?.filter((part: any) => 'functionCall' in part) || [] : [];
+  // Build OpenAI messages with strict tool-call pairing and merge text + tool_calls
+  for (let h = 0; h < history.length; h++) {
+    const content = history[h];
+
     const functionResponseParts =
       content.parts?.filter((part: any) => 'functionResponse' in part) || [];
+    const functionCallPartsInThisMessage =
+      content.parts?.filter((part: any) => 'functionCall' in part) || [];
 
+    // If current message has functionResponse(s), we must find matching functionCall
     if (functionResponseParts.length > 0) {
       for (const responsePart of functionResponseParts as any[]) {
         const functionResponse = responsePart.functionResponse;
-        const matchingCall = functionCallParts.find(
-          (callPart: any) =>
-            callPart.functionCall.id === functionResponse.id,
-        );
 
-        const functionCall = (matchingCall as any)?.functionCall;
+        // Search backwards to find the matching functionCall by id
+        let matchingCall: any | undefined;
+        for (let k = h - 1; k >= 0 && !matchingCall; k--) {
+          const prev = history[k];
+          if (!prev?.parts) continue;
+          matchingCall = prev.parts.find(
+            (p: any) => p.functionCall && p.functionCall.id === functionResponse.id,
+          );
+        }
 
+        const functionCall = matchingCall?.functionCall as
+          | { name?: string; args?: unknown }
+          | undefined;
+
+        // Create assistant tool_call followed immediately by tool
         messages.push({
           role: 'assistant',
           content: null,
@@ -119,10 +132,11 @@ export function toGeminiRequest(request: GenerateContentParameters): {
               id: functionResponse.id,
               type: 'function',
               function: {
-                name: functionCall?.name || functionResponse.name,
-                arguments: functionCall?.args
-                  ? JSON.stringify(functionCall.args)
-                  : '{}',
+                name: functionCall?.name || functionResponse.name || '',
+                arguments:
+                  functionCall?.args !== undefined
+                    ? JSON.stringify(functionCall.args)
+                    : '{}',
               },
             },
           ],
@@ -131,35 +145,92 @@ export function toGeminiRequest(request: GenerateContentParameters): {
         messages.push({
           role: 'tool',
           tool_call_id: functionResponse.id,
-          content: JSON.stringify(functionResponse.response),
+          content: JSON.stringify(functionResponse.response ?? {}),
         });
       }
-    } else if (functionCallParts.length > 0) {
-      // This block is intentionally left empty.
-      // We do not want to generate an assistant message for a tool call
-      // unless we have the corresponding tool response.
-    } else {
-      // Regular user or model message
-      messages.push({
-        role: content.role === 'model' ? 'assistant' : 'user',
-        content: toOpenAiContent(content.parts as Part[]),
-      });
+      continue;
     }
+
+    // If message has functionCall(s) but no response yet, do NOT emit anything now
+    if (functionCallPartsInThisMessage.length > 0) {
+      continue;
+    }
+
+    // Otherwise emit regular turn (merge any text parts)
+    const text = toOpenAiContent(content.parts as Part[]);
+    messages.push({
+      role: content.role === 'model' ? 'assistant' : 'user',
+      content: text,
+    });
   }
 
   const openAiTools = tools ? toOpenAiTools(tools as Tool[]) : undefined;
   const reasoning = isThinkingSupported(request.model || '')
     ? {}
     : undefined;
+  const response_format =
+    request.config?.responseMimeType === 'application/json'
+      ? { type: 'json_object' as const }
+      : undefined;
+
+  // Second pass: merge consecutive assistant messages, but NEVER across a tool boundary.
+  // Specifically, do not merge if the previous assistant had tool_calls and the next
+  // message is role: 'tool' (they must remain adjacent and unbroken).
+  const mergedMessages: ChatCompletionMessageParam[] = [];
+  for (let i = 0; i < messages.length; i++) {
+    const curr = messages[i];
+
+    if (curr.role !== 'assistant') {
+      mergedMessages.push(curr);
+      continue;
+    }
+
+    // If this assistant has tool_calls, and next message is tool, keep as-is
+    const next = messages[i + 1];
+    if (curr.role === 'assistant' && (curr as any).tool_calls && next?.role === 'tool') {
+      mergedMessages.push(curr);
+      continue;
+    }
+
+    // Otherwise, merge with following assistant messages that also have no immediate tool after them
+    let mergedContent: string[] = [];
+    let mergedToolCalls: any[] = [];
+
+    const take = (msg: ChatCompletionAssistantMessageParam) => {
+      if (typeof msg.content === 'string' && msg.content) mergedContent.push(msg.content);
+      if ((msg as any).tool_calls) mergedToolCalls.push(...(msg as any).tool_calls);
+    };
+
+    take(curr as ChatCompletionAssistantMessageParam);
+
+    let j = i + 1;
+    while (j < messages.length && messages[j].role === 'assistant') {
+      const prevOfJ = messages[j - 1];
+      const nextOfJ = messages[j + 1];
+      const isToolBoundary = (prevOfJ as any)?.tool_calls && nextOfJ?.role === 'tool';
+      if (isToolBoundary) break; // don't cross assistant-tool pair
+      take(messages[j] as ChatCompletionAssistantMessageParam);
+      j++;
+    }
+
+    mergedMessages.push({
+      role: 'assistant',
+      content: mergedContent.length ? mergedContent.join('\n') : null,
+      tool_calls: mergedToolCalls.length ? mergedToolCalls : undefined,
+    } as ChatCompletionAssistantMessageParam);
+
+    i = j - 1; // advance outer loop
+  }
 
   return {
-    messages,
+    messages: mergedMessages,
     model: request.model || '',
     temperature: config?.temperature || 0,
     top_p: config?.topP || 1,
     tools: openAiTools,
     tool_choice: openAiTools ? 'auto' : undefined,
     reasoning,
+    response_format,
   };
 }
 
