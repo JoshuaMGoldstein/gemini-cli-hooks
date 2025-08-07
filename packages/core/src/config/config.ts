@@ -133,12 +133,12 @@ export type FlashFallbackHandler = (
 ) => Promise<boolean | string | null>;
 
 export interface AutosaveSettings {
-  compressafter: number;
   truncateafter: number;
   truncatenewtag: boolean;
-  compressnewtag: boolean;
   minstartingtokens: number;
   truncateby?: number;
+  additionalcompressed?: number;
+  compressioncharlimit?: number;
 }
 
 export interface ConfigParameters {
@@ -190,6 +190,7 @@ export interface ConfigParameters {
   hooks?: {
     tool_call?: string;
     stats?: string;
+    thinking?: string;
   };
   openAiApiKey?: string;
   openAiBaseUrl?: string;
@@ -253,7 +254,9 @@ export class Config {
   private readonly resume: boolean;
   private readonly autosave: boolean | AutosaveSettings;
   private resumedChatTag: string | undefined;
-  private readonly hooks: { tool_call?: string; stats?: string } | undefined;
+  private readonly hooks:
+    | { tool_call?: string; stats?: string; thinking?: string }
+    | undefined;
   private readonly openAiApiKey: string | undefined;
   private readonly openAiBaseUrl: string | undefined;
   private readonly reasoningMax: number | undefined;
@@ -618,7 +621,7 @@ export class Config {
     return undefined;
   }
 
-  getHooks(): { tool_call?: string; stats?: string } | undefined {
+  getHooks(): { tool_call?: string; stats?: string; thinking?: string } | undefined {
     return this.hooks;
   }
 

@@ -1,0 +1,2 @@
+#curl -X POST 'https://openrouter.ai/api/v1/chat/completions' -H 'Authorization: Bearer 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' -H 'Content-Type: application/json' -d @debug.json
+curl -X POST 'https://openrouter.ai/api/v1/chat/completions' -H 'Authorization: Bearer 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' -H 'Content-Type: application/json' -d @gpt5.json

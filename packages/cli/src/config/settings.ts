@@ -15,6 +15,7 @@ import {
   BugCommandSettings,
   TelemetrySettings,
   AuthType,
+  AutosaveSettings,
 } from '@google/gemini-cli-core';
 import stripJsonComments from 'strip-json-comments';
 import { DefaultLight } from '../ui/themes/default-light.js';
@@ -103,6 +104,10 @@ export interface Settings {
   hooks?: {
     tool_call?: string;
     stats?: string;
+  };
+  autosave?: boolean | AutosaveSettings;
+  reasoning?: {
+    max_tokens?: number;
   };
 }
 

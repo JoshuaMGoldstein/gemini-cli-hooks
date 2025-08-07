@@ -59,6 +59,9 @@ export type ContentGeneratorConfig = {
   vertexai?: boolean;
   authType?: AuthType | undefined;
   proxy?: string | undefined;
+  reasoning?: {
+    max_tokens?: number;
+  };
 };
 
 class OpenAIContentGenerator implements ContentGenerator {
