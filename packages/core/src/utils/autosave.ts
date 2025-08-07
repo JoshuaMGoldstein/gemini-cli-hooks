@@ -137,6 +137,6 @@ export async function autoSaveChatIfEnabled(config: Config) {
     tag = randomUUID();
     config.setResumedChatTag(tag);
   }
-  console.log(`[AUTOSAVE DEBUG] Saving checkpoint with tag: ${tag}`);
+  
   await logger.saveCheckpoint(history, tag);
 }
