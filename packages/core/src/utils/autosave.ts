@@ -23,7 +23,7 @@ export async function autoSaveChatIfEnabled(config: Config) {
   }
 
   const autosaveSettings = config.getAutosaveSettings();
-  console.log(`[AUTOSAVE DEBUG] Settings: ${JSON.stringify(autosaveSettings)}`);
+
 
   if (autosaveSettings) {
     const {
@@ -65,14 +65,12 @@ export async function autoSaveChatIfEnabled(config: Config) {
       0
     );
 
-    console.log(`[AUTOSAVE DEBUG] Total Tokens: ${historyTokens}`);
-    console.log(`[AUTOSAVE DEBUG] Truncate After: ${truncateafter}`);
-    console.log(`[AUTOSAVE DEBUG] Compress After: ${compressafter}`);
+    
 
     let tag = config.getResumedChatTag();
 
     if (historyTokens > truncateafter) {
-      console.log('[AUTOSAVE DEBUG] Truncating history...');
+      
       if (truncatenewtag || !tag) {
         tag = randomUUID();
         config.setResumedChatTag(tag);
@@ -118,19 +116,19 @@ export async function autoSaveChatIfEnabled(config: Config) {
       
       history = [...startingHistory, ...endingHistory];
       chat.setHistory(history);
-      console.log(`[AUTOSAVE DEBUG] History truncated to ${history.length} entries.`);
+      
     } else if (historyTokens > compressafter) {
-      console.log('[AUTOSAVE DEBUG] Compressing history...');
+      
       if (compressnewtag || !tag) {
         tag = randomUUID();
         config.setResumedChatTag(tag);
       }
-      // Placeholder for actual compression logic
-      const compressedHistory = history; // Replace with real compression
-      history = compressedHistory;
-      chat.setHistory(history);
-    } else {
-      console.log('[AUTOSAVE DEBUG] No action taken.');
+      const compressionInfo = await config
+        .getGeminiClient()
+        ?.tryCompressChat(randomUUID(), true);
+      
+      history = config.getGeminiClient()?.getChat().getHistory() || history;
+    
     }
   }
 

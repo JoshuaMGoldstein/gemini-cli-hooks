@@ -659,9 +659,9 @@ export class GeminiClient {
     const historyToCompress = curatedHistory.slice(0, compressBeforeIndex);
     const historyToKeep = curatedHistory.slice(compressBeforeIndex);
 
-    this.getChat().setHistory(historyToCompress);
+    const tempChat = await this.startChat(historyToCompress, false);
 
-    const { text: summary } = await this.getChat().sendMessage(
+    const { text: summary } = await tempChat.sendMessage(
       {
         message: {
           text: 'First, reason in your scratchpad. Then, generate the <state_snapshot>.',
@@ -672,17 +672,20 @@ export class GeminiClient {
       },
       prompt_id,
     );
-    this.chat = await this.startChat([
+
+    const newHistory = [
       {
-        role: 'user',
+        role: 'user' as const,
         parts: [{ text: summary }],
       },
       {
-        role: 'model',
+        role: 'model' as const,
         parts: [{ text: 'Got it. Thanks for the additional context!' }],
       },
       ...historyToKeep,
-    ]);
+    ];
+
+    this.getChat().setHistory(newHistory);
 
     const { totalTokens: newTokenCount } =
       await this.getContentGenerator().countTokens({
