@@ -193,6 +193,7 @@ export interface ConfigParameters {
   };
   openAiApiKey?: string;
   openAiBaseUrl?: string;
+  reasoningMax?: number;
 }
 
 export class Config {
@@ -255,6 +256,7 @@ export class Config {
   private readonly hooks: { tool_call?: string; stats?: string } | undefined;
   private readonly openAiApiKey: string | undefined;
   private readonly openAiBaseUrl: string | undefined;
+  private readonly reasoningMax: number | undefined;
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -312,6 +314,7 @@ export class Config {
     this.hooks = params.hooks;
     this.openAiApiKey = params.openAiApiKey;
     this.openAiBaseUrl = params.openAiBaseUrl;
+    this.reasoningMax = params.reasoningMax;
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -625,6 +628,10 @@ export class Config {
 
   getOpenAiBaseUrl(): string | undefined {
     return this.openAiBaseUrl;
+  }
+
+  getReasoningMax(): number | undefined {
+    return this.reasoningMax;
   }
 
   getResumedChatTag(): string | undefined {

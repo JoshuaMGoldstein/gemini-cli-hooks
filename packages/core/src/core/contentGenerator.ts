@@ -78,7 +78,7 @@ class OpenAIContentGenerator implements ContentGenerator {
   async generateContent(
     request: GenerateContentParameters,
   ): Promise<GenerateContentResponse> {
-    const mappedRequest = toGeminiRequest(request);
+    const mappedRequest = toGeminiRequest(request, this.config);
     if (this.config.getDebugMode()) {
       console.log('OpenAI Request URL:', this.openai.baseURL + 'chat/completions');
       console.log('OpenAI Request:', JSON.stringify(mappedRequest, null, 2));
@@ -100,7 +100,7 @@ class OpenAIContentGenerator implements ContentGenerator {
   async generateContentStream(
     request: GenerateContentParameters,
   ): Promise<AsyncGenerator<GenerateContentResponse>> {
-    const mappedRequest = toGeminiRequest(request);
+    const mappedRequest = toGeminiRequest(request, this.config);
     if (this.config.getDebugMode()) {
       console.log('OpenAI Request URL:', this.openai.baseURL + 'chat/completions');
       console.log('OpenAI Request:', JSON.stringify(mappedRequest, null, 2));

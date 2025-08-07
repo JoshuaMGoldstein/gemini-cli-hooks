@@ -20,6 +20,7 @@ import {
   ChatCompletionTool,
 } from 'openai/resources';
 import { isThinkingSupported } from '../core/modelCheck.js';
+import { Config } from '../config/config.js';
 
 function toOpenAiContent(parts: Part[]): string {
   if (!Array.isArray(parts)) {
@@ -78,7 +79,10 @@ export function toOpenAiTools(tools: Tool[]): ChatCompletionTool[] {
   );
 }
 
-export function toGeminiRequest(request: GenerateContentParameters): {
+export function toGeminiRequest(
+  request: GenerateContentParameters,
+  config: Config,
+): {
   messages: ChatCompletionMessageParam[];
   model: string;
   temperature: number;
@@ -88,8 +92,8 @@ export function toGeminiRequest(request: GenerateContentParameters): {
   reasoning?: Record<string, unknown>;
   response_format?: { type: 'json_object' };
 } {
-  const { contents, config } = request;
-  const tools = config?.tools;
+  const { contents } = request;
+  const tools = request.config?.tools;
   const messages: ChatCompletionMessageParam[] = [];
   const history = (
     Array.isArray(contents) ? contents : [contents]
@@ -165,9 +169,13 @@ export function toGeminiRequest(request: GenerateContentParameters): {
   }
 
   const openAiTools = tools ? toOpenAiTools(tools as Tool[]) : undefined;
-  const reasoning = isThinkingSupported(request.model || '')
-    ? {}
-    : undefined;
+  let reasoning: Record<string, unknown> | undefined;
+  if (isThinkingSupported(request.model || '')) {
+    reasoning = {};
+    if (config.getReasoningMax()) {
+      reasoning.max_tokens = config.getReasoningMax();
+    }
+  }
   const response_format =
     request.config?.responseMimeType === 'application/json'
       ? { type: 'json_object' as const }
@@ -225,8 +233,8 @@ export function toGeminiRequest(request: GenerateContentParameters): {
   return {
     messages: mergedMessages,
     model: request.model || '',
-    temperature: config?.temperature || 0,
-    top_p: config?.topP || 1,
+    temperature: request.config?.temperature || 0,
+    top_p: request.config?.topP || 1,
     tools: openAiTools,
     tool_choice: openAiTools ? 'auto' : undefined,
     reasoning,

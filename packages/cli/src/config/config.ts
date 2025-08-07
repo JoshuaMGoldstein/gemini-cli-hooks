@@ -64,6 +64,7 @@ export interface CliArgs {
   proxy: string | undefined;
   resume: boolean | undefined;
   autosave: boolean | undefined;
+  reasoningmax: number | undefined;
 }
 
 export async function parseArguments(): Promise<CliArgs> {
@@ -211,6 +212,10 @@ export async function parseArguments(): Promise<CliArgs> {
       type: 'boolean',
       description: 'Automatically save the chat session after each turn.',
       default: false,
+    })
+    .option('reasoningmax', {
+      type: 'number',
+      description: 'Maximum reasoning tokens to use for each turn.',
     })
     .version(await getCliVersion()) // This will enable the --version flag based on package.json
     .alias('v', 'version')
@@ -460,10 +465,15 @@ export async function loadCliConfig(
     summarizeToolOutput: settings.summarizeToolOutput,
     ideMode,
     resume: argv.resume,
-    autosave: argv.autosave,
+    autosave: argv.autosave
+      ? typeof settings.autosave === 'object'
+        ? settings.autosave
+        : true
+      : false,
     hooks: settings.hooks,
     openAiApiKey: process.env.OPENAI_API_KEY,
     openAiBaseUrl: process.env.OPENAI_BASE_URL,
+    reasoningMax: argv.reasoningmax ?? settings.reasoning?.max_tokens,
   });
   return config;
 }
