@@ -244,6 +244,17 @@ export function toGeminiRequest(
 
 const partialToolCalls: { [key: string]: { id: string; name: string; arguments: string } } = {};
 
+function sanitizeName(name: string): string {
+  // Find the index of the first character that is not alphanumeric, underscore, or hyphen.
+  const match = name.match(/[^a-zA-Z0-9_-]/);
+  // If an invalid character is found, truncate the string at its position.
+  if (match && match.index !== undefined) {
+    return name.substring(0, match.index);
+  }
+  // Otherwise, the name is valid as-is.
+  return name;
+}
+
 export function toGeminiResponse(
   response: ChatCompletion | ChatCompletionChunk,
 ): GenerateContentResponse {
@@ -257,7 +268,7 @@ export function toGeminiResponse(
     if (message.tool_calls) {
       for (const toolCall of message.tool_calls) {
         functionCalls.push({
-          name: toolCall.function.name,
+          name: sanitizeName(toolCall.function.name),
           args: JSON.parse(toolCall.function.arguments),
           id: toolCall.id,
         });
@@ -275,7 +286,7 @@ export function toGeminiResponse(
           partialToolCalls[toolCallIndex].id = toolCall.id;
         }
         if (toolCall.function?.name) {
-          partialToolCalls[toolCallIndex].name = toolCall.function.name;
+          partialToolCalls[toolCallIndex].name = sanitizeName(toolCall.function.name);
         }
         if (toolCall.function?.arguments) {
           partialToolCalls[toolCallIndex].arguments += toolCall.function.arguments;
