@@ -19,7 +19,10 @@ import {
   ChatCompletionMessageParam,
   ChatCompletionTool,
 } from 'openai/resources';
-import { isThinkingSupported } from '../core/modelCheck.js';
+import {
+  isThinkingSupported,
+  isResponseFormatSupported,
+} from '../core/modelCheck.js';
 import { Config } from '../config/config.js';
 
 function toOpenAiContent(parts: Part[]): string {
@@ -177,7 +180,8 @@ export function toGeminiRequest(
     }
   }
   const response_format =
-    request.config?.responseMimeType === 'application/json'
+    request.config?.responseMimeType === 'application/json' &&
+    isResponseFormatSupported(request.model || '', 'json_object')
       ? { type: 'json_object' as const }
       : undefined;
 

@@ -87,3 +87,20 @@ export function isThinkingSupported(model: string) {
   if (model == 'openrouter/horizon-beta') return true;
   return false;
 }
+
+export function isResponseFormatSupported(
+  modelName: string,
+  format: 'json_object',
+): boolean {
+  if (format === 'json_object') {
+    // openai/gpt-oss models do not support the response_format parameter. ONLY openai and gemini models appear to
+    if(modelName.includes('gpt-oss')) return false;
+    //if(modelName.includes('moonshotai')) return false;
+    //if(modelName.includes('deepseek')) return false;
+    //if(modelName.includes('x-ai')) return false;
+    //if(modelName.includes('qwen')) return false;
+
+    if(!modelName.includes('gemini') && !modelName.includes('openai/')) return false;
+  }
+  return true;
+}
