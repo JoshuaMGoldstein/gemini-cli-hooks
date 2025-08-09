@@ -125,7 +125,7 @@ export async function checkNextSpeaker(
   }
 
   const contents: Content[] = [
-    ...curatedHistory,
+    lastMessage,
     { role: 'user', parts: [{ text: CHECK_PROMPT }] },
   ];
 
@@ -133,6 +133,8 @@ export async function checkNextSpeaker(
     const model =
       config.getFlashModel() ||
       (config.getOpenAiApiKey() ? undefined : DEFAULT_GEMINI_FLASH_MODEL);
+
+    console.log('using model '+model+ 'for nextSpeakerCheck');
     const parsedResponse = (await geminiClient.generateJson(
       contents,
       RESPONSE_SCHEMA,

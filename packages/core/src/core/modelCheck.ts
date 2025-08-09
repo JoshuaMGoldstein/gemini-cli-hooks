@@ -98,9 +98,8 @@ export function isResponseFormatSupported(
     //if(modelName.includes('moonshotai')) return false;
     //if(modelName.includes('deepseek')) return false;
     //if(modelName.includes('x-ai')) return false;
-    //if(modelName.includes('qwen')) return false;
-
-    if(!modelName.includes('gemini') && !modelName.includes('openai/')) return false;
+    //if(modelName.includes('qwen')) return false;    
+    if(!modelName.includes('nousresearch/deephermes') && !modelName.includes('gemini') && !modelName.includes('openai/')) return false;
   }
   return true;
 }

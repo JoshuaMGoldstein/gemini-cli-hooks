@@ -192,6 +192,8 @@ async function getGeminiMdFilePathsInternal(
       ...fileFilteringOptions,
     };
 
+    //Dont use downward search, this is stupid especially for this project.
+/*
     const downwardPaths = await bfsFileSearch(resolvedCwd, {
       fileName: geminiMdFilename,
       maxDirs: MAX_DIRECTORIES_TO_SCAN_FOR_MEMORY,
@@ -209,7 +211,7 @@ async function getGeminiMdFilePathsInternal(
     // Add downward paths only if they haven't been included already (e.g. from upward scan)
     for (const dPath of downwardPaths) {
       allPaths.add(dPath);
-    }
+    }*/
   }
 
   // Add extension context file paths

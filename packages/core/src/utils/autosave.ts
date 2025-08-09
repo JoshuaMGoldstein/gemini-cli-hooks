@@ -91,20 +91,21 @@ export async function autoSaveChatIfEnabled(config: Config) {
             for(var j=0; j<content.parts.length;j++) {
               let part = content.parts[j];
               
+              let truncationPrefixString = `[truncated to ${compressionCharLimit} chars. Run command again for full content]`;
               let truncObj:any = null; //Object to truncate the keys of
               if(part.functionResponse && part.functionResponse?.response ) {
                 truncObj = part.functionResponse.response;    //Truncate the function response          
               } else if(part.functionCall && part.functionCall?.args) {
                 truncObj = part.functionCall.args; //Truncate arugments to write file etc
-              } else if(part.text && part.text.length > compressionCharLimit) {
-                part.text = `[truncated to ${compressionCharLimit} chars]`+part.text;
+              } else if(part.text && part.text.length > (compressionCharLimit+truncationPrefixString.length) ) {
+                part.text = truncationPrefixString+part.text.slice(0,compressionCharLimit);
               }
               if(truncObj) {
                 let keys = Object.keys(truncObj);
                 for(var k=0; k<keys.length; k++) {
                   let key = keys[k];
-                  if(typeof truncObj[key] === 'string' && truncObj[key].length > compressionCharLimit ) {
-                    truncObj[key] = `[truncated to ${compressionCharLimit} chars]`+truncObj[key].slice(0,compressionCharLimit);
+                  if(typeof truncObj[key] === 'string' && truncObj[key].length > (compressionCharLimit+truncationPrefixString.length) ) {
+                    truncObj[key] = truncationPrefixString+truncObj[key].slice(0,compressionCharLimit);
                   }
                 }
               }

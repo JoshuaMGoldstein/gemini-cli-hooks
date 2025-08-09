@@ -13,6 +13,7 @@ import {
   Content,
   Tool,
   GenerateContentResponse,
+  GenerateContentParameters,
 } from '@google/genai';
 import { getFolderStructure } from '../utils/getFolderStructure.js';
 import {
@@ -51,6 +52,10 @@ import { loadCheckpoint } from '../utils/checkpoint.js';
 //Added for --autosave
 import { autoSaveChatIfEnabled } from '../utils/autosave.js';
 import { isThinkingSupported } from './modelCheck.js';
+import { toGeminiRequest } from '../utils/openai-converters.js';
+
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * Returns the index of the content after the fraction of the total characters in the history.
@@ -441,6 +446,17 @@ export class GeminiClient {
       this.config.getFlashModel() ||
       this.config.getModel() ||
       DEFAULT_GEMINI_FLASH_MODEL;
+
+    //Dont allow any tools to call with DEFAULT_GEMINI_FLASH_MODEL if there was a flashmodel specified or in openAI mode
+    if(modelToUse == DEFAULT_GEMINI_FLASH_MODEL) {
+      if(this.config.getFlashModel()) {
+        model = this.config.getFlashModel();
+      } else if(this.config.getOpenAiApiKey() && this.config.getOpenAiBaseUrl() && this.config.getModel()) {
+        model = this.config.getModel();
+      }
+    }
+
+        console.log('in generateJson - using model '+model);
     try {
       const userMemory = this.config.getUserMemory();
       const systemInstruction = getCoreSystemPrompt(userMemory);
@@ -450,17 +466,33 @@ export class GeminiClient {
         ...config,
       };
 
+      let contentRequest = {
+        model: modelToUse,
+        config: {
+          ...requestConfig,
+          systemInstruction,
+          responseSchema: schema,
+          responseMimeType: 'application/json',
+        },
+        contents,
+      };
+
+      
+      if (this.config.getDebugMode()) {
+        const requestForLog = toGeminiRequest(contentRequest, this.config);
+
+        const logPath = path.join(
+          this.config.getProjectTempDir(),
+          'openai-debug.log',
+        );
+        fs.appendFileSync(
+          logPath,
+          JSON.stringify(requestForLog, null, 2) + '\n\n',
+        );
+      }
+
       const apiCall = () =>
-        this.getContentGenerator().generateContent({
-          model: modelToUse,
-          config: {
-            ...requestConfig,
-            systemInstruction,
-            responseSchema: schema,
-            responseMimeType: 'application/json',
-          },
-          contents,
-        });
+        this.getContentGenerator().generateContent(contentRequest);
 
       const result = await retryWithBackoff(apiCall, {
         onPersistent429: async (authType?: string, error?: unknown) =>
@@ -542,7 +574,7 @@ export class GeminiClient {
         abortSignal,
         ...configToUse,
         systemInstruction,
-      };
+      };     
 
       const apiCall = () =>
         this.getContentGenerator().generateContent({
@@ -718,7 +750,7 @@ export class GeminiClient {
     }
 
     const currentModel = this.config.getModel();
-    const fallbackModel = DEFAULT_GEMINI_FLASH_MODEL;
+    const fallbackModel = this.config.getFlashModel() ?? DEFAULT_GEMINI_FLASH_MODEL;
 
     // Don't fallback if already using Flash model
     if (currentModel === fallbackModel) {

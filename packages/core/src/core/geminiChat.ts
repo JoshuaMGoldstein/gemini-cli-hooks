@@ -36,6 +36,9 @@ import {
   ApiResponseEvent,
 } from '../telemetry/types.js';
 import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
+import { toGeminiRequest } from '../utils/openai-converters.js';
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * Returns true if the response is valid, false otherwise.
@@ -413,6 +416,25 @@ export class GeminiChat {
     const requestContents = this.getHistory(true).concat(userContent);
     this._logApiRequest(requestContents, this.config.getModel(), prompt_id);
 
+    if (this.config.getDebugMode()) {
+      const requestForLog = toGeminiRequest(
+        {
+          contents: requestContents,
+          model: this.config.getModel(),
+        },
+        this.config,
+      );
+
+      const logPath = path.join(
+        this.config.getProjectTempDir(),
+        'openai-debug.log',
+      );
+      fs.appendFileSync(
+        logPath,
+        JSON.stringify(requestForLog, null, 2) + '\n\n',
+      );
+    }
+
     const startTime = Date.now();
 
     try {
@@ -548,12 +570,12 @@ export class GeminiChat {
     startTime: number,
     prompt_id: string,
   ) {
-    const outputContent: Content[] = [];
+    const outputContent: Content[] = [];    
     const chunks: GenerateContentResponse[] = [];
     let errorOccurred = false;
 
     try {
-      for await (const chunk of streamResponse) {
+      for await (const chunk of streamResponse) { 
         if (isValidResponse(chunk)) {
           chunks.push(chunk);
           const content = chunk.candidates?.[0]?.content;

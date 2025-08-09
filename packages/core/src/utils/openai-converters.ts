@@ -24,6 +24,7 @@ import {
   isResponseFormatSupported,
 } from '../core/modelCheck.js';
 import { Config } from '../config/config.js';
+import { reportError } from '../utils/errorReporting.js';
 
 function toOpenAiContent(parts: Part[]): string {
   if (!Array.isArray(parts)) {
@@ -101,6 +102,9 @@ export function toGeminiRequest(
   const history = (
     Array.isArray(contents) ? contents : [contents]
   ).filter((content): content is Content => typeof content === 'object');
+
+  //Add system prompt
+  messages.push({role:"system", content:''+request.config?.systemInstruction});    
 
   // Build OpenAI messages with strict tool-call pairing and merge text + tool_calls
   for (let h = 0; h < history.length; h++) {
@@ -268,7 +272,12 @@ export function toGeminiResponse(
 
   if ('message' in choice) {
     const message = choice.message;
-    part.text = message.content || '';
+    part.text =  message.content || '';      
+    if( !message.content && (message as any).reasoning) {
+      part.text = (message as any).reasoning
+      part.thought = true;      
+    }
+    //part.text = message.content || '';
     if (message.tool_calls) {
       for (const toolCall of message.tool_calls) {
         functionCalls.push({
@@ -278,8 +287,14 @@ export function toGeminiResponse(
         });
       }
     }
+
   } else if (choice.delta) {
-    part.text = choice.delta.content || '';
+    part.text = choice.delta.content || '';      
+    if( !choice.delta.content && (choice.delta as any).reasoning) {      
+      part.text = (choice.delta as any).reasoning;
+      part.thought = true;      
+    }
+
     if (choice.delta.tool_calls) {
       for (const toolCall of choice.delta.tool_calls) {
         const toolCallIndex = toolCall.index;
@@ -297,6 +312,7 @@ export function toGeminiResponse(
         }
       }
     }
+    
   }
 
   if (choice.finish_reason === 'tool_calls') {
@@ -315,8 +331,11 @@ export function toGeminiResponse(
   }
 
   const parts: Part[] = [];
-  if (part.text) {
+  
+  if (part.text && !part.thought) {
     parts.push({ text: part.text });
+  } else if(part.text && part.thought) {
+    parts.push({ text:part.text, thought:true});
   }
 
   if (functionCalls.length > 0) {
