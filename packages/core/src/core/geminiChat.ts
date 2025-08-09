@@ -571,6 +571,7 @@ export class GeminiChat {
     prompt_id: string,
   ) {
     const outputContent: Content[] = [];    
+    const thoughtContent: Content[] = [];
     const chunks: GenerateContentResponse[] = [];
     let errorOccurred = false;
 
@@ -581,6 +582,7 @@ export class GeminiChat {
           const content = chunk.candidates?.[0]?.content;
           if (content !== undefined) {
             if (this.isThoughtContent(content)) {
+              thoughtContent.push(content);
               yield chunk;
               continue;
             }
@@ -599,9 +601,17 @@ export class GeminiChat {
     if (!errorOccurred) {
       const durationMs = Date.now() - startTime;
       const allParts: Part[] = [];
-      for (const content of outputContent) {
-        if (content.parts) {
-          allParts.push(...content.parts);
+      if(outputContent && outputContent.length>0) {
+        for (const content of outputContent) {
+          if (content.parts) {
+            allParts.push(...content.parts);
+          }
+        }
+      } else if(thoughtContent && thoughtContent.length>0) {
+        for (const content of thoughtContent) {
+          if (content.parts) {
+            allParts.push(...content.parts);
+          }
         }
       }
       const fullText = getStructuredResponseFromParts(allParts);
