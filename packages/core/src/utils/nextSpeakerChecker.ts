@@ -134,7 +134,6 @@ export async function checkNextSpeaker(
       config.getFlashModel() ||
       (config.getOpenAiApiKey() ? undefined : DEFAULT_GEMINI_FLASH_MODEL);
 
-    console.log('using model '+model+ 'for nextSpeakerCheck');
     const parsedResponse = (await geminiClient.generateJson(
       contents,
       RESPONSE_SCHEMA,
