@@ -82,10 +82,6 @@ class OpenAIContentGenerator implements ContentGenerator {
     request: GenerateContentParameters,
   ): Promise<GenerateContentResponse> {
     const mappedRequest = toGeminiRequest(request, this.config);
-    if (this.config.getDebugMode()) {
-      console.log('OpenAI Request URL:', this.openai.baseURL + 'chat/completions');
-      console.log('OpenAI Request:', JSON.stringify(mappedRequest, null, 2));
-    }
     try {
       const response = await this.openai.chat.completions.create({
         ...mappedRequest,
